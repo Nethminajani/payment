@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-900">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tuition Payment & Square QR Pass Management System</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- HTML5 QR Code Scanner Library -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <!-- QRCode.js Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <!-- Custom Styles for Square Cards & Print Studio -->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    /* Square Card Formatting (80mm x 80mm equivalent layout) */
+    .square-card {
+      width: 82mm;
+      height: 82mm;
+      box-sizing: border-box;
+    }
+
+    /* PRINT STUDIO CSS FORMATTING */
+    @media print {
+      body * {
+        visibility: hidden !important;
+      }
+      #print-studio-container, #print-studio-container * {
+        visibility: visible !important;
+      }
+      #print-studio-container {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        padding: 5mm !important;
+        margin: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .page-break {
+        page-break-after: always;
+      }
+    }
+  </style>
+</head>
+<body class="h-full bg-slate-900 text-slate-100 flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- TOP NAVIGATION HEADER -->
+  <header class="bg-slate-900/90 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Logo & Brand -->
+      <div class="flex items-center space-x-3">
+        <div class="bg-gradient-to-tr from-indigo-600 to-violet-500 text-white p-2.5 rounded-xl shadow-lg shadow-indigo-500/20 flex items-center justify-center font-black text-xl">
+          <i class="fa-solid fa-qrcode"></i>
+        </div>
+        <div>
+          <h1 class="font-extrabold text-base sm:text-lg text-white leading-snug flex items-center gap-2">
+            Tuition Pass <span class="bg-indigo-500/20 text-indigo-400 text-xs px-2 py-0.5 rounded-md border border-indigo-500/30 font-semibold">Pro v2.5</span>
+          </h1>
+          <p class="text-xs text-slate-400">Class Payment & Square QR Pass Studio</p>
+        </div>
+      </div>
+
+      <!-- Global Active Class Folder Switcher -->
+      <div class="flex items-center gap-2 bg-slate-800/90 border border-slate-700/80 p-1.5 rounded-xl shadow-inner">
+        <span class="text-xs font-semibold text-slate-400 pl-2 flex items-center gap-1.5">
+          <i class="fa-solid fa-folder-open text-indigo-400"></i> Active Batch:
+        </span>
+        <select id="global-class-select" onchange="changeActiveClass(this.value)" class="bg-slate-900 text-slate-100 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <!-- Populated dynamically -->
+        </select>
+        <button onclick="switchTab('tab-folders')" title="Add Class Folder" class="p-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs transition-all">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- MAIN LAYOUT WRAPPER -->
+  <div class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-5 flex flex-col space-y-5">
+
+    <!-- NAVIGATION TAB BAR -->
+    <nav class="flex overflow-x-auto gap-2 p-1.5 bg-slate-800/80 border border-slate-700/60 rounded-2xl shadow-lg no-print">
+      <button id="nav-btn-dashboard" onclick="switchTab('tab-dashboard')" class="flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all bg-indigo-600 text-white shadow-md shadow-indigo-600/30">
+        <i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span>
+      </button>
+
+      <button id="nav-btn-scan" onclick="switchTab('tab-scan')" class="flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-700/50">
+        <i class="fa-solid fa-camera font-bold text-indigo-400"></i> <span>Scanner & Pay</span>
+      </button>
+
+      <button id="nav-btn-students" onclick="switchTab('tab-students')" class="flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-700/50">
+        <i class="fa-solid fa-users"></i> <span>Students & Ledger</span>
+      </button>
+
+      <button id="nav-btn-print" onclick="switchTab('tab-print')" class="flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-700/50">
+        <i class="fa-solid fa-print text-amber-400"></i> <span>Square Print Studio</span>
+      </button>
+
+      <button id="nav-btn-remind" onclick="switchTab('tab-remind')" class="flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-700/50">
+        <i class="fa-brands fa-whatsapp text-emerald-400"></i> <span>WhatsApp Remind</span>
+      </button>
+
+      <button id="nav-btn-folders" onclick="switchTab('tab-folders')" class="flex-1 min-w-[110px] py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-700/50">
+        <i class="fa-solid fa-folder"></i> <span>Class Folders</span>
+      </button>
+
+      <button id="nav-btn-backup" onclick="switchTab('tab-backup')" class="flex-1 min-w-[110px] py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-700/50">
+        <i class="fa-solid fa-database"></i> <span>Backup & Data</span>
+      </button>
+    </nav>
+
+    <!-- TAB 1: FINANCIAL DASHBOARD & ANALYTICS -->
+    <section id="tab-dashboard" class="tab-content space-y-5">
+      
+      <!-- Top Overview Stat Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- Stat Card 1: Total Enrolled -->
+        <div class="bg-slate-800/90 border border-slate-700/70 p-4 rounded-2xl shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Folder Students</p>
+            <h3 class="text-2xl font-black text-white mt-1" id="dash-total-students">0</h3>
+            <p class="text-[11px] text-slate-400 mt-0.5" id="dash-active-class-lbl">All Folders</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center text-xl font-bold">
+            <i class="fa-solid fa-user-graduate"></i>
+          </div>
+        </div>
+
+        <!-- Stat Card 2: Collected Revenue -->
+        <div class="bg-slate-800/90 border border-slate-700/70 p-4 rounded-2xl shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Collected Fees (<span class="dash-curr-month">Oct</span>)</p>
+            <h3 class="text-2xl font-black text-emerald-400 mt-1" id="dash-collected-rev">LKR 0</h3>
+            <p class="text-[11px] text-emerald-400/80 mt-0.5" id="dash-paid-count-lbl">0 Paid Students</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-xl font-bold">
+            <i class="fa-solid fa-money-bill-wave"></i>
+          </div>
+        </div>
+
+        <!-- Stat Card 3: Pending Revenue -->
+        <div class="bg-slate-800/90 border border-slate-700/70 p-4 rounded-2xl shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending Unpaid (<span class="dash-curr-month">Oct</span>)</p>
+            <h3 class="text-2xl font-black text-rose-400 mt-1" id="dash-pending-rev">LKR 0</h3>
+            <p class="text-[11px] text-rose-400/80 mt-0.5" id="dash-unpaid-count-lbl">0 Unpaid Students</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center text-xl font-bold">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+          </div>
+        </div>
+
+        <!-- Stat Card 4: Collection Rate -->
+        <div class="bg-slate-800/90 border border-slate-700/70 p-4 rounded-2xl shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Collection Rate</p>
+            <h3 class="text-2xl font-black text-sky-400 mt-1" id="dash-rate-percent">0%</h3>
+            <p class="text-[11px] text-slate-400 mt-0.5">Target Completion</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center text-xl font-bold">
+            <i class="fa-solid fa-percent"></i>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Financial Progress Bar & Month Target Selector -->
+      <div class="bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="font-bold text-slate-200 text-base">Monthly Collection Overview</h3>
+            <p class="text-xs text-slate-400">Select month to view financial breakdown</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-semibold text-slate-400">Target Month:</label>
+            <select id="dash-month-selector" onchange="renderDashboard()" class="bg-slate-900 border border-slate-700 text-xs font-bold text-white px-3 py-1.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="Jan">January</option>
+              <option value="Feb">February</option>
+              <option value="Mar">March</option>
+              <option value="Apr">April</option>
+              <option value="May">May</option>
+              <option value="Jun">June</option>
+              <option value="Jul">July</option>
+              <option value="Aug">August</option>
+              <option value="Sep">September</option>
+              <option value="Oct">October</option>
+              <option value="Nov">November</option>
+              <option value="Dec">December</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Visual Progress Bar -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-bold">
+            <span class="text-emerald-400" id="dash-bar-collected-lbl">LKR 0 Collected</span>
+            <span class="text-slate-400" id="dash-bar-total-lbl">Target: LKR 0</span>
+          </div>
+          <div class="w-full bg-slate-900 rounded-full h-3.5 p-0.5 border border-slate-700 overflow-hidden">
+            <div id="dash-progress-fill" class="bg-gradient-to-r from-indigo-500 via-sky-400 to-emerald-400 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Method Distribution & Quick Shortcuts -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        
+        <div class="bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm space-y-3">
+          <h3 class="font-bold text-slate-200 text-sm flex items-center gap-2">
+            <i class="fa-solid fa-wallet text-indigo-400"></i> Payment Method Breakdown
+          </h3>
+          <div class="grid grid-cols-3 gap-3 pt-2">
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700/50 text-center">
+              <span class="text-[10px] font-bold text-slate-400 uppercase">Cash</span>
+              <p class="font-black text-white text-base mt-1" id="dash-method-cash">0</p>
+            </div>
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700/50 text-center">
+              <span class="text-[10px] font-bold text-slate-400 uppercase">Bank Transfer</span>
+              <p class="font-black text-white text-base mt-1" id="dash-method-bank">0</p>
+            </div>
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700/50 text-center">
+              <span class="text-[10px] font-bold text-slate-400 uppercase">Card / Online</span>
+              <p class="font-black text-white text-base mt-1" id="dash-method-online">0</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm flex flex-col justify-between space-y-3">
+          <div>
+            <h3 class="font-bold text-slate-200 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-bolt text-amber-400"></i> Quick Actions
+            </h3>
+            <p class="text-xs text-slate-400 mt-1">Jump directly to critical class management tools:</p>
+          </div>
+          
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <button onclick="switchTab('tab-scan')" class="p-2.5 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 rounded-xl text-xs font-bold text-indigo-300 flex items-center justify-center gap-1.5 transition-all">
+              <i class="fa-solid fa-qrcode"></i> Scan QR
+            </button>
+            <button onclick="switchTab('tab-print')" class="p-2.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-xl text-xs font-bold text-amber-300 flex items-center justify-center gap-1.5 transition-all">
+              <i class="fa-solid fa-print"></i> Print Cards
+            </button>
+            <button onclick="switchTab('tab-remind')" class="p-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-300 flex items-center justify-center gap-1.5 transition-all">
+              <i class="fa-brands fa-whatsapp"></i> Remind
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- TAB 2: LIVE SCANNER & QUICK CHECK-IN -->
+    <section id="tab-scan" class="tab-content hidden space-y-5">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        
+        <!-- Live Camera Viewfinder Column -->
+        <div class="lg:col-span-6 bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="font-bold text-slate-200 text-base flex items-center gap-2">
+              <i class="fa-solid fa-camera text-indigo-400"></i> Live QR Camera Scanner
+            </h2>
+            <div class="flex items-center gap-2">
+              <select id="camera-select" onchange="restartCameraWithDevice(this.value)" class="bg-slate-900 text-xs border border-slate-700 text-slate-300 rounded-lg px-2 py-1">
+                <option value="environment">Back Camera</option>
+                <option value="user">Front Camera</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Video Viewport Frame -->
+          <div class="relative bg-slate-950 rounded-2xl overflow-hidden min-h-[280px] flex items-center justify-center border-2 border-dashed border-slate-700">
+            <div id="qr-reader" class="w-full"></div>
+            
+            <div id="camera-loading-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 p-4 text-center bg-slate-950/95">
+              <i class="fa-solid fa-camera text-4xl mb-3 text-indigo-400 animate-pulse"></i>
+              <p class="text-sm font-bold text-slate-200">Point phone camera at student card</p>
+              <p class="text-xs text-slate-500 max-w-xs mt-1">Make sure to allow camera access when prompted by browser</p>
+              <button onclick="startCameraScanner()" class="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2">
+                <i class="fa-solid fa-play"></i> Start Camera Scanner
+              </button>
+            </div>
+          </div>
+
+          <!-- Status Message Bar -->
+          <div id="camera-status-bar" class="text-xs font-semibold text-slate-400 bg-slate-900/80 p-3 rounded-xl border border-slate-700/60 flex items-center gap-2">
+            <i class="fa-solid fa-circle-info text-indigo-400"></i> Scanner Ready. Place QR code inside viewfinder.
+          </div>
+
+          <!-- Upload Image Fallback -->
+          <div class="pt-2 border-t border-slate-700/50 flex items-center justify-between">
+            <span class="text-xs text-slate-400 font-semibold">Saved Photo on device?</span>
+            <label for="qr-file-input" class="cursor-pointer bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs py-2 px-3 rounded-xl border border-slate-600 transition-all flex items-center gap-1.5">
+              <i class="fa-solid fa-image text-slate-300"></i> Upload Card Photo
+            </label>
+            <input type="file" id="qr-file-input" accept="image/*" class="hidden" onchange="handleQrImageUpload(this)">
+          </div>
+          <div id="qr-file-reader-hidden" class="hidden"></div>
+        </div>
+
+        <!-- Manual Search & Scanned Result Display -->
+        <div class="lg:col-span-6 space-y-5">
+          
+          <!-- Manual Quick Search -->
+          <div class="bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm space-y-3">
+            <h3 class="font-bold text-slate-200 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-magnifying-glass text-indigo-400"></i> Manual Student Lookup
+            </h3>
+            <div class="relative">
+              <input type="text" id="quick-search-input" onkeyup="handleQuickSearch()" placeholder="Search Name, ID (e.g. STU-2027-101), or Phone..." class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-xs sm:text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-500" />
+              <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-500"></i>
+            </div>
+
+            <div id="search-results-list" class="space-y-2 max-h-[200px] overflow-y-auto">
+              <!-- Search results list -->
+            </div>
+          </div>
+
+          <!-- Scanned Student Active Ledger Card -->
+          <div id="scanned-student-preview" class="bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm space-y-4 hidden">
+            <!-- Dynamically populated student active ledger -->
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 3: STUDENT DIRECTORY & PAYMENT LEDGER -->
+    <section id="tab-students" class="tab-content hidden space-y-5">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        
+        <!-- Add Student Form Column -->
+        <div class="lg:col-span-4 bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm h-fit space-y-4">
+          <h2 class="font-bold text-slate-200 text-base flex items-center gap-2">
+            <i class="fa-solid fa-user-plus text-indigo-400"></i> Enroll New Student
+          </h2>
+
+          <form id="add-student-form" onsubmit="handleAddStudent(event)" class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Full Student Name *</label>
+              <input type="text" id="student-name-input" required placeholder="e.g. Ruwan Silva" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">WhatsApp / Phone Number *</label>
+              <input type="tel" id="student-phone-input" required placeholder="e.g. 0771234567" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Parent Contact (Optional)</label>
+              <input type="tel" id="student-parent-input" placeholder="e.g. 0718889900" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Assign Class Folder *</label>
+              <select id="student-class-input" required class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <!-- Dynamically populated -->
+              </select>
+            </div>
+
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 mt-2">
+              <i class="fa-solid fa-plus-circle"></i> Register & Generate Pass
+            </button>
+          </form>
+        </div>
+
+        <!-- Student Database Table -->
+        <div class="lg:col-span-8 bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="font-bold text-slate-200 text-base flex items-center gap-2">
+                <i class="fa-solid fa-address-book text-indigo-400"></i> Student Roster & Ledger
+              </h2>
+              <p class="text-xs text-slate-400" id="student-directory-count-lbl">Showing all registered students</p>
+            </div>
+
+            <div class="w-full sm:w-auto">
+              <input type="text" id="directory-search-input" onkeyup="renderStudentDirectory()" placeholder="Filter by name/ID..." class="bg-slate-900 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+          </div>
+
+          <!-- Table Container -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="bg-slate-900/80 text-slate-400 font-bold border-b border-slate-700">
+                  <th class="p-3">Student ID</th>
+                  <th class="p-3">Name</th>
+                  <th class="p-3">Folder Batch</th>
+                  <th class="p-3">Phone</th>
+                  <th class="p-3 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="student-table-body" class="divide-y divide-slate-700/60 text-slate-300">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 4: SQUARE CARD PRINT STUDIO -->
+    <section id="tab-print" class="tab-content hidden space-y-5">
+      <div class="bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 pb-4">
+          <div>
+            <h2 class="font-bold text-slate-200 text-base flex items-center gap-2">
+              <i class="fa-solid fa-print text-amber-400"></i> Square Pass Print Studio (80mm x 80mm)
+            </h2>
+            <p class="text-xs text-slate-400">Generate high-contrast square passes with encoded QR code and 12-month checkmark grid for paper printing</p>
+          </div>
+
+          <!-- Print Mode Selector -->
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="print-mode-student-select" onchange="renderPrintStudio()" class="bg-slate-900 border border-slate-700 text-xs font-bold text-white px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <option value="ALL">Batch Print: Entire Folder Class</option>
+              <!-- Dynamically populated with individual student options -->
+            </select>
+
+            <button onclick="window.print()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2">
+              <i class="fa-solid fa-print"></i> Print Now
+            </button>
+          </div>
+        </div>
+
+        <!-- PRINT STUDIO AREA (Target for Window.Print) -->
+        <div id="print-studio-container" class="bg-slate-950 p-6 rounded-2xl border border-slate-800 min-h-[400px]">
+          <div id="square-cards-grid" class="flex flex-wrap justify-center gap-6">
+            <!-- Dynamically generated square card templates -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: WHATSAPP REMINDER AUTOMATION -->
+    <section id="tab-remind" class="tab-content hidden space-y-5">
+      <div class="bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 pb-4">
+          <div>
+            <h2 class="font-bold text-slate-200 text-base flex items-center gap-2">
+              <i class="fa-brands fa-whatsapp text-emerald-400 text-lg"></i> Automated WhatsApp Fee Reminders
+            </h2>
+            <p class="text-xs text-slate-400">Send 1-click customized fee reminders directly to student/parent WhatsApp numbers</p>
+          </div>
+
+          <!-- Month Selector -->
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-bold text-slate-400">Target Month:</label>
+            <select id="remind-month-select" onchange="renderRemindTab()" class="bg-slate-900 border border-slate-700 text-xs font-bold text-white px-3 py-1.5 rounded-xl">
+              <option value="Jan">January</option>
+              <option value="Feb">February</option>
+              <option value="Mar">March</option>
+              <option value="Apr">April</option>
+              <option value="May">May</option>
+              <option value="Jun">June</option>
+              <option value="Jul">July</option>
+              <option value="Aug">August</option>
+              <option value="Sep">September</option>
+              <option value="Oct">October</option>
+              <option value="Nov">November</option>
+              <option value="Dec">December</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- Unpaid List with 1-click WhatsApp button -->
+          <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/60 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-rose-400 text-sm flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                Unpaid Students (<span id="remind-unpaid-count">0</span>)
+              </h3>
+            </div>
+            <div id="remind-unpaid-list" class="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Message Preview & Template Config -->
+          <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/60 space-y-3">
+            <h3 class="font-bold text-slate-200 text-sm">Message Template Preview</h3>
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-2 font-mono leading-relaxed">
+              <p class="text-emerald-400 font-bold">Sample WhatsApp Text:</p>
+              <p id="whatsapp-template-preview">
+                Dear Parent/Student [Name], friendly payment reminder for [Class Name] tuition class for [Month]. Fee: LKR [Amount]. Thank you!
+              </p>
+            </div>
+            <p class="text-[11px] text-slate-400 italic">
+              * Tapping "Send WhatsApp" opens WhatsApp directly with pre-filled text ready to send.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: CLASS FOLDERS BATCH MANAGEMENT -->
+    <section id="tab-folders" class="tab-content hidden space-y-5">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        
+        <!-- Create Class Form -->
+        <div class="lg:col-span-4 bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm h-fit space-y-4">
+          <h2 class="font-bold text-slate-200 text-base flex items-center gap-2">
+            <i class="fa-solid fa-folder-plus text-indigo-400"></i> Create Class Folder
+          </h2>
+
+          <form onsubmit="handleCreateClass(event)" class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Class / Batch Name *</label>
+              <input type="text" id="new-class-name-input" required placeholder="e.g. 2027 A/L Physics Theory" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Monthly Fee (LKR) *</label>
+              <input type="number" id="new-class-fee-input" required placeholder="e.g. 3500" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2">
+              <i class="fa-solid fa-folder-plus"></i> Save Folder
+            </button>
+          </form>
+        </div>
+
+        <!-- Class Folders List -->
+        <div class="lg:col-span-8 bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm space-y-4">
+          <h2 class="font-bold text-slate-200 text-base flex items-center gap-2">
+            <i class="fa-solid fa-folder-tree text-indigo-400"></i> Active Batch Folders
+          </h2>
+          <div id="class-folders-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Dynamically populated folder cards -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 7: BACKUP, CSV EXPORT & LOCAL STORAGE -->
+    <section id="tab-backup" class="tab-content hidden space-y-5">
+      <div class="max-w-3xl mx-auto space-y-5">
+        
+        <div class="bg-indigo-950/70 border border-indigo-800/80 p-5 rounded-2xl shadow-sm flex items-start gap-4">
+          <div class="bg-indigo-600/20 text-indigo-400 p-3 rounded-xl font-bold text-xl">
+            <i class="fa-solid fa-floppy-disk"></i>
+          </div>
+          <div class="space-y-1">
+            <h3 class="font-bold text-white text-base">Automatic Browser Data Storage</h3>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              All student data, payment history, and class folders are automatically preserved in your device browser's offline storage (<code>localStorage</code>).
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          
+          <!-- Download Backup JSON -->
+          <div class="bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm flex flex-col justify-between space-y-3">
+            <div>
+              <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-lg mb-2">
+                <i class="fa-solid fa-file-export"></i>
+              </div>
+              <h4 class="font-bold text-slate-200 text-sm">JSON Backup</h4>
+              <p class="text-xs text-slate-400 mt-1">Download full app data backup file.</p>
+            </div>
+            <button onclick="downloadBackupJSON()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-xl text-xs shadow transition-all">
+              Download JSON
+            </button>
+          </div>
+
+          <!-- Restore Backup JSON -->
+          <div class="bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm flex flex-col justify-between space-y-3">
+            <div>
+              <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold text-lg mb-2">
+                <i class="fa-solid fa-file-import"></i>
+              </div>
+              <h4 class="font-bold text-slate-200 text-sm">Restore Data</h4>
+              <p class="text-xs text-slate-400 mt-1">Restore from saved JSON backup.</p>
+            </div>
+            <label for="restore-file-input" class="cursor-pointer w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-xl text-xs text-center shadow transition-all block">
+              Restore JSON
+            </label>
+            <input type="file" id="restore-file-input" accept=".json" onchange="restoreBackupJSON(this)" class="hidden" />
+          </div>
+
+          <!-- CSV Export -->
+          <div class="bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm flex flex-col justify-between space-y-3">
+            <div>
+              <div class="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center font-bold text-lg mb-2">
+                <i class="fa-solid fa-file-csv"></i>
+              </div>
+              <h4 class="font-bold text-slate-200 text-sm">CSV Excel Export</h4>
+              <p class="text-xs text-slate-400 mt-1">Export student roster to spreadsheet.</p>
+            </div>
+            <button onclick="exportToCSV()" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 rounded-xl text-xs shadow transition-all">
+              Export CSV
+            </button>
+          </div>
+
+        </div>
+
+        <div class="bg-slate-800/90 border border-slate-700/70 p-5 rounded-2xl shadow-sm flex items-center justify-between gap-3">
+          <div>
+            <h4 class="font-bold text-slate-200 text-sm">Load Sample Demo Data</h4>
+            <p class="text-xs text-slate-400">Populate test student batch profiles for demo testing</p>
+          </div>
+          <button onclick="loadSampleDemoData()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold px-4 py-2 rounded-xl text-xs border border-slate-600">
+            Load Demo
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <!-- MODAL: RECORD DETAILED PAYMENT -->
+  <div id="payment-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl relative">
+      <button onclick="closePaymentModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white font-bold text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div>
+        <span class="text-[10px] font-bold text-indigo-400 uppercase bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20" id="modal-class-lbl">Class</span>
+        <h3 class="font-bold text-white text-lg mt-1" id="modal-student-name">Student Name</h3>
+        <p class="text-xs text-slate-400" id="modal-student-id">STU-1001</p>
+      </div>
+
+      <form onsubmit="handleSaveDetailedPayment(event)" class="space-y-3 pt-2 border-t border-slate-800">
+        <input type="hidden" id="modal-student-id-val" />
+        <input type="hidden" id="modal-month-val" />
+
+        <div class="flex items-center justify-between bg-slate-800 p-2.5 rounded-xl border border-slate-700">
+          <span class="text-xs font-bold text-slate-300">Target Month:</span>
+          <span class="text-xs font-black text-indigo-400 bg-indigo-950 px-3 py-1 rounded-lg border border-indigo-800" id="modal-month-display">OCTOBER</span>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Payment Method *</label>
+          <select id="modal-pay-method" required class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="Cash">Cash Handover</option>
+            <option value="Bank Transfer">Bank Transfer / Deposit</option>
+            <option value="Online / Card">Online / Card Payment</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Receipt Reference # (Auto-generated)</label>
+          <input type="text" id="modal-receipt-ref" readonly class="w-full bg-slate-950/60 border border-slate-800 text-slate-400 rounded-xl px-3 py-2 text-xs font-mono" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Transaction Date *</label>
+          <input type="date" id="modal-pay-date" required class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Notes / Slip Ref (Optional)</label>
+          <input type="text" id="modal-pay-notes" placeholder="e.g. Bank slip verified" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+
+        <div class="pt-2 flex items-center justify-end gap-2">
+          <button type="button" onclick="closePaymentModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs">
+            Cancel
+          </button>
+          <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-600/30">
+            <i class="fa-solid fa-check mr-1"></i> Save Payment
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT APPLICATION LOGIC -->
+  <script>
+    const STORAGE_KEY = 'tuition_qr_app_v2_advanced';
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    let appData = {
+      classes: [
+        { id: 'c1', name: '2027 A/L Physics Theory', fee: 3500 },
+        { id: 'c2', name: '2028 A/L Combined Maths', fee: 4000 },
+        { id: 'c3', name: '2026 Revision Physics', fee: 3000 }
+      ],
+      activeClass: '2027 A/L Physics Theory',
+      students: []
+    };
+
+    let html5QrScannerInstance = null;
+    let isScannerActive = false;
+
+    // Default Sample Data
+    const SAMPLE_STUDENTS = [
+      {
+        id: 'STU-2027-101',
+        name: 'Kamal Silva',
+        phone: '0771234567',
+        parentPhone: '0719998877',
+        classFolder: '2027 A/L Physics Theory',
+        payments: { Jan: true, Feb: true, Mar: true, Apr: true, Oct: true },
+        paymentDetails: {
+          Oct: { method: 'Cash', date: '2026-10-02', receipt: 'REC-OCT-101', notes: 'Handed at class door' }
+        }
+      },
+      {
+        id: 'STU-2027-102',
+        name: 'Nipuni Fernando',
+        phone: '0758884433',
+        parentPhone: '0773332211',
+        classFolder: '2027 A/L Physics Theory',
+        payments: { Jan: true, Feb: true },
+        paymentDetails: {}
+      },
+      {
+        id: 'STU-2028-201',
+        name: 'Sahan Jayasinghe',
+        phone: '0715556677',
+        parentPhone: '0715556600',
+        classFolder: '2028 A/L Combined Maths',
+        payments: { Jan: true, Feb: true, Mar: true, Oct: true },
+        paymentDetails: {
+          Oct: { method: 'Bank Transfer', date: '2026-10-01', receipt: 'REC-OCT-201', notes: 'Bank slip attached' }
+        }
+      }
+    ];
+
+    /* Synthesize audio beep on successful scan without needing audio files */
+    function playBeepSound() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // High pitch A5
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.15);
+      } catch (e) {
+        console.log("Audio not allowed yet.");
+      }
+    }
+
+    function loadDataFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          appData = JSON.parse(raw);
+        } else {
+          appData.students = SAMPLE_STUDENTS;
+          saveDataToStorage();
+        }
+      } catch (e) {
+        console.error("Storage load error:", e);
+      }
+    }
+
+    function saveDataToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+      } catch (e) {
+        console.error("Storage save error:", e);
+      }
+    }
+
+    /* Application Onload Setup */
+    window.onload = function() {
+      loadDataFromStorage();
+      populateClassDropdowns();
+      
+      // Auto-select current month in selectors
+      const currentMonthName = MONTHS[new Date().getMonth()] || 'Oct';
+      const dashSel = document.getElementById('dash-month-selector');
+      const remindSel = document.getElementById('remind-month-select');
+      if (dashSel) dashSel.value = currentMonthName;
+      if (remindSel) remindSel.value = currentMonthName;
+
+      renderDashboard();
+      renderStudentDirectory();
+      renderClassFolders();
+      renderPrintStudio();
+      renderRemindTab();
+    };
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById(tabId).classList.remove('hidden');
+
+      ['dashboard', 'scan', 'students', 'print', 'remind', 'folders', 'backup'].forEach(t => {
+        const btn = document.getElementById(`nav-btn-${t}`);
+        if (`tab-${t}` === tabId) {
+          btn.className = "flex-1 min-w-[120px] py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all bg-indigo-600 text-white shadow-md shadow-indigo-600/30";
+        } else {
+          btn.className = "flex-1 min-w-[120px] py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-700/50";
+        }
+      });
+
+      if (tabId === 'tab-scan') {
+        startCameraScanner();
+      } else {
+        stopCameraScanner();
+      }
+
+      if (tabId === 'tab-dashboard') renderDashboard();
+      if (tabId === 'tab-students') renderStudentDirectory();
+      if (tabId === 'tab-print') renderPrintStudio();
+      if (tabId === 'tab-remind') renderRemindTab();
+      if (tabId === 'tab-folders') renderClassFolders();
+    }
+
+    function populateClassDropdowns() {
+      const globalSel = document.getElementById('global-class-select');
+      const studentClassSel = document.getElementById('student-class-input');
+
+      globalSel.innerHTML = '<option value="All">All Class Folders</option>';
+      studentClassSel.innerHTML = '';
+
+      appData.classes.forEach(c => {
+        globalSel.innerHTML += `<option value="${c.name}">${c.name} (LKR ${c.fee})</option>`;
+        studentClassSel.innerHTML += `<option value="${c.name}">${c.name}</option>`;
+      });
+
+      globalSel.value = appData.activeClass || 'All';
+    }
+
+    function changeActiveClass(val) {
+      appData.activeClass = val;
+      renderDashboard();
+      renderStudentDirectory();
+      renderPrintStudio();
+      renderRemindTab();
+    }
+
+    function renderDashboard() {
+      const selectedMonth = document.getElementById('dash-month-selector').value;
+      document.querySelectorAll('.dash-curr-month').forEach(el => el.innerText = selectedMonth);
+
+      let filteredStudents = appData.students;
+      if (appData.activeClass && appData.activeClass !== 'All') {
+        filteredStudents = filteredStudents.filter(s => s.classFolder === appData.activeClass);
+      }
+
+      document.getElementById('dash-total-students').innerText = filteredStudents.length;
+      document.getElementById('dash-active-class-lbl').innerText = appData.activeClass === 'All' ? 'All Active Folders' : appData.activeClass;
+
+      // Calculate Revenue based on Class Fee
+      let totalCollected = 0;
+      let totalPending = 0;
+      let paidCount = 0;
+      let unpaidCount = 0;
+
+      let cashCount = 0, bankCount = 0, onlineCount = 0;
+
+      filteredStudents.forEach(s => {
+        const clsObj = appData.classes.find(c => c.name === s.classFolder) || { fee: 3500 };
+        const fee = clsObj.fee;
+
+        if (s.payments && s.payments[selectedMonth]) {
+          paidCount++;
+          totalCollected += fee;
+
+          const details = (s.paymentDetails && s.paymentDetails[selectedMonth]) || {};
+          if (details.method === 'Bank Transfer') bankCount++;
+          else if (details.method === 'Online / Card') onlineCount++;
+          else cashCount++;
+        } else {
+          unpaidCount++;
+          totalPending += fee;
+        }
+      });
+
+      const totalTarget = totalCollected + totalPending;
+      const rate = totalTarget > 0 ? Math.round((totalCollected / totalTarget) * 100) : 0;
+
+      document.getElementById('dash-collected-rev').innerText = `LKR ${totalCollected.toLocaleString()}`;
+      document.getElementById('dash-paid-count-lbl').innerText = `${paidCount} Paid Students`;
+
+      document.getElementById('dash-pending-rev').innerText = `LKR ${totalPending.toLocaleString()}`;
+      document.getElementById('dash-unpaid-count-lbl').innerText = `${unpaidCount} Unpaid Students`;
+
+      document.getElementById('dash-rate-percent').innerText = `${rate}%`;
+
+      document.getElementById('dash-bar-collected-lbl').innerText = `LKR ${totalCollected.toLocaleString()} Collected`;
+      document.getElementById('dash-bar-total-lbl').innerText = `Target: LKR ${totalTarget.toLocaleString()}`;
+      document.getElementById('dash-progress-fill').style.width = `${rate}%`;
+
+      document.getElementById('dash-method-cash').innerText = cashCount;
+      document.getElementById('dash-method-bank').innerText = bankCount;
+      document.getElementById('dash-method-online').innerText = onlineCount;
+    }
+
+    function startCameraScanner(facingModeOverride) {
+      const placeholder = document.getElementById('camera-loading-placeholder');
+      const statusBar = document.getElementById('camera-status-bar');
+      if (placeholder) placeholder.classList.add('hidden');
+
+      if (isScannerActive) return;
+
+      const device = facingModeOverride || document.getElementById('camera-select').value || 'environment';
+
+      try {
+        html5QrScannerInstance = new Html5Qrcode("qr-reader");
+        const config = { fps: 10, qrbox: { width: 220, height: 220 } };
+
+        html5QrScannerInstance.start(
+          { facingMode: device },
+          config,
+          (decodedText) => {
+            playBeepSound();
+            handleQrCodeScanned(decodedText);
+          },
+          (err) => {}
+        ).then(() => {
+          isScannerActive = true;
+          statusBar.className = "text-xs font-semibold text-emerald-400 bg-emerald-950/80 p-3 rounded-xl border border-emerald-800 flex items-center gap-2";
+          statusBar.innerHTML = '<i class="fa-solid fa-camera animate-pulse text-emerald-400"></i> Camera active. Scanning...';
+        }).catch((err) => {
+          isScannerActive = false;
+          if (placeholder) placeholder.classList.remove('hidden');
+          statusBar.className = "text-xs font-semibold text-amber-400 bg-amber-950/80 p-3 rounded-xl border border-amber-800";
+          statusBar.innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1"></i> Camera permission needed. Allow browser access or use photo upload.';
+        });
+      } catch (err) {
+        console.error("Scanner exception:", err);
+      }
+    }
+
+    function stopCameraScanner() {
+      if (html5QrScannerInstance && isScannerActive) {
+        html5QrScannerInstance.stop().then(() => {
+          isScannerActive = false;
+          const placeholder = document.getElementById('camera-loading-placeholder');
+          if (placeholder) placeholder.classList.remove('hidden');
+        }).catch(err => console.error(err));
+      }
+    }
+
+    function restartCameraWithDevice(facingMode) {
+      stopCameraScanner();
+      setTimeout(() => startCameraScanner(facingMode), 400);
+    }
+
+    function handleQrImageUpload(input) {
+      if (!input.files || input.files.length === 0) return;
+      const file = input.files[0];
+
+      const html5QrCode = new Html5Qrcode("qr-file-reader-hidden");
+      html5QrCode.scanFile(file, true)
+        .then(decodedText => {
+          playBeepSound();
+          handleQrCodeScanned(decodedText);
+        })
+        .catch(err => {
+          alert("Could not detect a clear QR code in this uploaded image.");
+        });
+    }
+
+    function handleQrCodeScanned(scannedText) {
+      let cleanId = scannedText.trim();
+      if (cleanId.includes('|')) {
+        cleanId = cleanId.split('|')[0].replace('STU:', '');
+      }
+
+      const student = appData.students.find(s => s.id.toLowerCase() === cleanId.toLowerCase());
+
+      if (student) {
+        renderStudentPaymentProfile(student);
+      } else {
+        alert(`Scanned Code: "${cleanId}"\nNo student found matching this ID.`);
+      }
+    }
+
+    function handleQuickSearch() {
+      const q = document.getElementById('quick-search-input').value.toLowerCase().trim();
+      const resultsContainer = document.getElementById('search-results-list');
+
+      if (!q) {
+        resultsContainer.innerHTML = '';
+        return;
+      }
+
+      const matches = appData.students.filter(s => 
+        s.name.toLowerCase().includes(q) || 
+        s.id.toLowerCase().includes(q) ||
+        s.phone.includes(q)
+      );
+
+      if (matches.length === 0) {
+        resultsContainer.innerHTML = '<p class="text-xs text-slate-500 font-medium text-center py-2">No matching student found.</p>';
+        return;
+      }
+
+      resultsContainer.innerHTML = matches.map(s => `
+        <div onclick='selectStudentFromSearch(${JSON.stringify(s.id)})' class="p-2.5 bg-slate-900 hover:bg-indigo-950 border border-slate-700 hover:border-indigo-600 rounded-xl cursor-pointer transition-all flex items-center justify-between">
+          <div>
+            <h4 class="font-bold text-xs text-slate-200">${s.name}</h4>
+            <p class="text-[10px] text-slate-400">${s.id} • ${s.classFolder}</p>
+          </div>
+          <span class="text-indigo-400 text-xs font-bold"><i class="fa-solid fa-chevron-right"></i></span>
+        </div>
+      `).join('');
+    }
+
+    function selectStudentFromSearch(studentId) {
+      const student = appData.students.find(s => s.id === studentId);
+      if (student) renderStudentPaymentProfile(student);
+    }
+
+    function renderStudentPaymentProfile(student) {
+      const preview = document.getElementById('scanned-student-preview');
+      preview.classList.remove('hidden');
+
+      const currentMonthName = MONTHS[new Date().getMonth()] || 'Oct';
+      const isCurrentPaid = student.payments && student.payments[currentMonthName];
+
+      let monthButtonsHTML = MONTHS.map(m => {
+        const isPaid = student.payments && student.payments[m];
+        const details = (student.paymentDetails && student.paymentDetails[m]) || {};
+        return `
+          <div class="p-2.5 rounded-xl border text-center transition-all ${
+            isPaid 
+              ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80 shadow-sm' 
+              : 'bg-slate-900 text-slate-400 border-slate-700'
+          }">
+            <div class="text-xs font-extrabold">${m}</div>
+            <div class="text-[10px] font-bold mt-0.5">${isPaid ? '✓ PAID' : 'UNPAID'}</div>
+            ${details.method ? `<div class="text-[9px] text-emerald-400 font-medium mt-0.5">${details.method}</div>` : ''}
+            
+            <div class="mt-2 flex items-center justify-center gap-1">
+              <button onclick="openDetailedPaymentModal('${student.id}', '${m}')" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-2 py-0.5 rounded border border-slate-600">
+                ${isPaid ? 'Edit' : 'Mark'}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      preview.innerHTML = `
+        <div class="border-b border-slate-700 pb-3 flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <span class="text-[10px] font-bold text-indigo-400 bg-indigo-950 border border-indigo-800 px-2 py-0.5 rounded">${student.classFolder}</span>
+            <h3 class="font-extrabold text-white text-lg mt-1">${student.name}</h3>
+            <p class="text-xs text-slate-400">${student.id} • Phone: ${student.phone}</p>
+          </div>
+          <button onclick="switchTab('tab-print'); setPrintModeStudent('${student.id}');" class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black px-3 py-2 rounded-xl shadow flex items-center gap-1.5">
+            <i class="fa-solid fa-print"></i> Square Pass
+          </button>
+        </div>
+
+        <!-- 12 Month Grid Timeline -->
+        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide">12-Month Ledger (Jan - Dec):</h4>
+        <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
+          ${monthButtonsHTML}
+        </div>
+      `;
+
+      preview.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function openDetailedPaymentModal(studentId, month) {
+      const student = appData.students.find(s => s.id === studentId);
+      if (!student) return;
+
+      document.getElementById('modal-student-id-val').value = studentId;
+      document.getElementById('modal-month-val').value = month;
+
+      document.getElementById('modal-student-name').innerText = student.name;
+      document.getElementById('modal-student-id').innerText = student.id;
+      document.getElementById('modal-class-lbl').innerText = student.classFolder;
+      document.getElementById('modal-month-display').innerText = month.toUpperCase();
+
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('modal-pay-date').value = today;
+      document.getElementById('modal-receipt-ref').value = `REC-${month.toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      const existingDetails = (student.paymentDetails && student.paymentDetails[month]) || {};
+      if (existingDetails.method) document.getElementById('modal-pay-method').value = existingDetails.method;
+      if (existingDetails.notes) document.getElementById('modal-pay-notes').value = existingDetails.notes;
+
+      document.getElementById('payment-modal').classList.remove('hidden');
+    }
+
+    function closePaymentModal() {
+      document.getElementById('payment-modal').classList.add('hidden');
+    }
+
+    function handleSaveDetailedPayment(e) {
+      e.preventDefault();
+      const studentId = document.getElementById('modal-student-id-val').value;
+      const month = document.getElementById('modal-month-val').value;
+
+      const student = appData.students.find(s => s.id === studentId);
+      if (!student) return;
+
+      if (!student.payments) student.payments = {};
+      if (!student.paymentDetails) student.paymentDetails = {};
+
+      student.payments[month] = true;
+      student.paymentDetails[month] = {
+        method: document.getElementById('modal-pay-method').value,
+        receipt: document.getElementById('modal-receipt-ref').value,
+        date: document.getElementById('modal-pay-date').value,
+        notes: document.getElementById('modal-pay-notes').value
+      };
+
+      saveDataToStorage();
+      closePaymentModal();
+      renderStudentPaymentProfile(student);
+      renderDashboard();
+    }
+
+    function handleAddStudent(e) {
+      e.preventDefault();
+      const name = document.getElementById('student-name-input').value.trim();
+      const phone = document.getElementById('student-phone-input').value.trim();
+      const parentPhone = document.getElementById('student-parent-input').value.trim();
+      const classFolder = document.getElementById('student-class-input').value;
+
+      if (!name || !phone || !classFolder) return;
+
+      const yearMatch = classFolder.match(/\d+/) ? classFolder.match(/\d+/)[0] : '2027';
+      const randomPart = Math.floor(100 + Math.random() * 900);
+      const studentId = `STU-${yearMatch}-${randomPart}`;
+
+      const newStudent = {
+        id: studentId,
+        name: name,
+        phone: phone,
+        parentPhone: parentPhone || phone,
+        classFolder: classFolder,
+        payments: {},
+        paymentDetails: {}
+      };
+
+      appData.students.push(newStudent);
+      saveDataToStorage();
+
+      document.getElementById('add-student-form').reset();
+      renderStudentDirectory();
+      renderDashboard();
+
+      switchTab('tab-print');
+      setPrintModeStudent(studentId);
+    }
+
+    function renderStudentDirectory() {
+      const tbody = document.getElementById('student-table-body');
+      const searchQuery = (document.getElementById('directory-search-input')?.value || '').toLowerCase();
+      const countLabel = document.getElementById('student-directory-count-lbl');
+
+      let filtered = appData.students;
+      if (appData.activeClass && appData.activeClass !== 'All') {
+        filtered = filtered.filter(s => s.classFolder === appData.activeClass);
+      }
+
+      if (searchQuery) {
+        filtered = filtered.filter(s => s.name.toLowerCase().includes(searchQuery) || s.id.toLowerCase().includes(searchQuery));
+      }
+
+      if (countLabel) countLabel.innerText = `Showing ${filtered.length} student(s) in active view`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500 italic">No registered students found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(s => `
+        <tr class="hover:bg-slate-800/50 transition-all">
+          <td class="p-3 font-bold text-white">${s.id}</td>
+          <td class="p-3 font-semibold text-slate-200">${s.name}</td>
+          <td class="p-3"><span class="bg-indigo-950 text-indigo-400 font-semibold px-2 py-0.5 rounded border border-indigo-800 text-[11px]">${s.classFolder}</span></td>
+          <td class="p-3 text-slate-400">${s.phone}</td>
+          <td class="p-3 text-center space-x-1">
+            <button onclick="selectStudentFromSearch('${s.id}'); switchTab('tab-scan');" class="bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 px-2.5 py-1 rounded-lg text-[11px] font-bold">
+              Ledger
+            </button>
+            <button onclick="switchTab('tab-print'); setPrintModeStudent('${s.id}');" class="bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded-lg text-[11px] font-bold">
+              Pass
+            </button>
+            <button onclick="deleteStudent('${s.id}')" class="bg-rose-500/10 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 px-2 py-1 rounded-lg text-[11px]">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function deleteStudent(id) {
+      if (confirm(`Delete student ID ${id}?`)) {
+        appData.students = appData.students.filter(s => s.id !== id);
+        saveDataToStorage();
+        renderStudentDirectory();
+        renderDashboard();
+      }
+    }
+
+    function renderPrintStudio() {
+      const modeSelect = document.getElementById('print-mode-student-select');
+      const grid = document.getElementById('square-cards-grid');
+
+      // Populate student options in print mode dropdown
+      let filtered = appData.students;
+      if (appData.activeClass && appData.activeClass !== 'All') {
+        filtered = filtered.filter(s => s.classFolder === appData.activeClass);
+      }
+
+      const currentSelectedVal = modeSelect.value;
+      modeSelect.innerHTML = '<option value="ALL">Batch Print: Entire Folder Class</option>';
+      filtered.forEach(s => {
+        modeSelect.innerHTML += `<option value="${s.id}">${s.name} (${s.id})</option>`;
+      });
+
+      if (currentSelectedVal && (currentSelectedVal === 'ALL' || filtered.some(s => s.id === currentSelectedVal))) {
+        modeSelect.value = currentSelectedVal;
+      }
+
+      let printList = filtered;
+      if (modeSelect.value && modeSelect.value !== 'ALL') {
+        printList = filtered.filter(s => s.id === modeSelect.value);
+      }
+
+      if (printList.length === 0) {
+        grid.innerHTML = '<p class="text-xs text-slate-500 italic py-8">No students available for printing in this folder.</p>';
+        return;
+      }
+
+      grid.innerHTML = printList.map(s => `
+        <!-- SQUARE CARD TEMPLATE (80mm x 80mm Layout) -->
+        <div class="square-card bg-white text-slate-900 p-2.5 border-2 border-slate-900 rounded-xl flex flex-col justify-between shadow-md relative overflow-hidden">
+          
+          <!-- Header -->
+          <div class="border-b-2 border-slate-900 pb-1 flex items-center justify-between">
+            <div>
+              <h4 class="font-black text-[11px] leading-none uppercase tracking-tight text-slate-900">TUITION CLASS PASS</h4>
+              <p class="text-[9px] font-bold text-slate-600 leading-tight">${s.classFolder}</p>
+            </div>
+            <span class="text-[9px] font-black bg-slate-900 text-white px-1.5 py-0.5 rounded">${s.id}</span>
+          </div>
+
+          <!-- Body: Student Details + High Contrast QR -->
+          <div class="flex items-center justify-between gap-1 my-1">
+            <div class="space-y-0.5 flex-1 pr-1">
+              <p class="text-[8px] font-bold text-slate-500 uppercase leading-none">Student Name</p>
+              <h5 class="font-black text-xs text-slate-900 leading-tight">${s.name}</h5>
+              <p class="text-[9px] font-bold text-slate-700 leading-none"><i class="fa-solid fa-phone text-[8px]"></i> ${s.phone}</p>
+            </div>
+
+            <!-- Square QR Container -->
+            <div class="p-1 border-2 border-slate-900 bg-white rounded-lg flex-shrink-0">
+              <div id="qr-target-${s.id}"></div>
+            </div>
+          </div>
+
+          <!-- Footer: 12 Month Physical Checkmark Grid -->
+          <div class="border-t-2 border-slate-900 pt-1">
+            <div class="text-[7px] font-black text-center text-slate-900 mb-0.5 tracking-wider uppercase">Annual Stamp & Verification Grid</div>
+            <div class="grid grid-cols-6 gap-0.5 text-center text-[7px] font-black">
+              <div class="border border-slate-800 p-0.5 rounded">JAN</div>
+              <div class="border border-slate-800 p-0.5 rounded">FEB</div>
+              <div class="border border-slate-800 p-0.5 rounded">MAR</div>
+              <div class="border border-slate-800 p-0.5 rounded">APR</div>
+              <div class="border border-slate-800 p-0.5 rounded">MAY</div>
+              <div class="border border-slate-800 p-0.5 rounded">JUN</div>
+              <div class="border border-slate-800 p-0.5 rounded">JUL</div>
+              <div class="border border-slate-800 p-0.5 rounded">AUG</div>
+              <div class="border border-slate-800 p-0.5 rounded">SEP</div>
+              <div class="border border-slate-800 p-0.5 rounded">OCT</div>
+              <div class="border border-slate-800 p-0.5 rounded">NOV</div>
+              <div class="border border-slate-800 p-0.5 rounded">DEC</div>
+            </div>
+          </div>
+
+        </div>
+      `).join('');
+
+      // Generate QR codes dynamically into targets
+      setTimeout(() => {
+        printList.forEach(s => {
+          const container = document.getElementById(`qr-target-${s.id}`);
+          if (container) {
+            container.innerHTML = '';
+            const qrText = `STU:${s.id}|${s.name}|${s.classFolder}`;
+            try {
+              if (window.QRCode) {
+                new QRCode(container, {
+                  text: qrText,
+                  width: 62,
+                  height: 62,
+                  colorDark: "#000000",
+                  colorLight: "#ffffff",
+                  correctLevel: QRCode.CorrectLevel.M
+                });
+              } else {
+                container.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=62x62&data=${encodeURIComponent(qrText)}" class="w-[62px] h-[62px]" />`;
+              }
+            } catch (e) {
+              container.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=62x62&data=${encodeURIComponent(qrText)}" class="w-[62px] h-[62px]" />`;
+            }
+          }
+        });
+      }, 100);
+    }
+
+    function setPrintModeStudent(studentId) {
+      const modeSelect = document.getElementById('print-mode-student-select');
+      if (modeSelect) {
+        modeSelect.value = studentId;
+        renderPrintStudio();
+      }
+    }
+
+    function renderRemindTab() {
+      const selectedMonth = document.getElementById('remind-month-select').value;
+      
+      let list = appData.students;
+      if (appData.activeClass && appData.activeClass !== 'All') {
+        list = list.filter(s => s.classFolder === appData.activeClass);
+      }
+
+      const unpaidList = list.filter(s => !s.payments || !s.payments[selectedMonth]);
+      document.getElementById('remind-unpaid-count').innerText = unpaidList.length;
+
+      const container = document.getElementById('remind-unpaid-list');
+      if (unpaidList.length === 0) {
+        container.innerHTML = '<p class="text-xs text-slate-500 italic py-4 text-center">All students in this folder have paid for this month!</p>';
+        return;
+      }
+
+      container.innerHTML = unpaidList.map(s => {
+        const clsObj = appData.classes.find(c => c.name === s.classFolder) || { fee: 3500 };
+        const msg = `Dear Parent/Student ${s.name}, friendly payment reminder for ${s.classFolder} tuition class for ${selectedMonth}. Monthly Fee: LKR ${clsObj.fee}. Thank you!`;
+        const phoneClean = (s.parentPhone || s.phone).replace(/[^0-9]/g, '');
+        const waUrl = `https://wa.me/${phoneClean.startsWith('0') ? '94' + phoneClean.slice(1) : phoneClean}?text=${encodeURIComponent(msg)}`;
+
+        return `
+          <div class="p-2.5 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between gap-2 text-xs">
+            <div>
+              <h4 class="font-bold text-white">${s.name}</h4>
+              <p class="text-[10px] text-slate-400">${s.id} • Phone: ${s.parentPhone || s.phone}</p>
+            </div>
+            <a href="${waUrl}" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow-sm">
+              <i class="fa-brands fa-whatsapp text-sm"></i> Send
+            </a>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function handleCreateClass(e) {
+      e.preventDefault();
+      const name = document.getElementById('new-class-name-input').value.trim();
+      const fee = parseInt(document.getElementById('new-class-fee-input').value) || 3500;
+
+      if (name && !appData.classes.some(c => c.name === name)) {
+        appData.classes.push({ id: 'c_' + Date.now(), name: name, fee: fee });
+        saveDataToStorage();
+        populateClassDropdowns();
+        renderClassFolders();
+        document.getElementById('new-class-name-input').value = '';
+        document.getElementById('new-class-fee-input').value = '';
+      }
+    }
+
+    function renderClassFolders() {
+      const grid = document.getElementById('class-folders-grid');
+      grid.innerHTML = appData.classes.map(c => {
+        const count = appData.students.filter(s => s.classFolder === c.name).length;
+        return `
+          <div class="p-4 bg-slate-900 border border-slate-700/80 rounded-2xl flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold text-lg border border-indigo-500/20">
+                <i class="fa-solid fa-folder"></i>
+              </div>
+              <div>
+                <h4 class="font-bold text-white text-sm">${c.name}</h4>
+                <p class="text-xs text-slate-400">Monthly Fee: LKR ${c.fee} • ${count} Student(s)</p>
+              </div>
+            </div>
+            <button onclick="removeClassFolder('${c.name}')" class="text-slate-500 hover:text-rose-400 p-2">
+              <i class="fa-solid fa-trash text-xs"></i>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function removeClassFolder(folderName) {
+      if (confirm(`Remove class folder "${folderName}"?`)) {
+        appData.classes = appData.classes.filter(c => c.name !== folderName);
+        saveDataToStorage();
+        populateClassDropdowns();
+        renderClassFolders();
+      }
+    }
+
+    function downloadBackupJSON() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      const dateStr = new Date().toISOString().split('T')[0];
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `Tuition_Class_Backup_${dateStr}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function restoreBackupJSON(input) {
+      if (!input.files || input.files.length === 0) return;
+      const file = input.files[0];
+      const reader = new FileReader();
+
+      reader.onload = function(e) {
+        try {
+          const importedData = JSON.parse(e.target.result);
+          if (importedData && importedData.students && importedData.classes) {
+            appData = importedData;
+            saveDataToStorage();
+            populateClassDropdowns();
+            renderDashboard();
+            renderStudentDirectory();
+            renderClassFolders();
+            alert("Backup data restored successfully!");
+          } else {
+            alert("Invalid backup file format.");
+          }
+        } catch (err) {
+          alert("Error reading backup file.");
+        }
+      };
+
+      reader.readAsText(file);
+    }
+
+    function exportToCSV() {
+      let csvContent = "data:text/csv;charset=utf-8,ID,Name,Phone,ClassFolder,Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec\n";
+
+      appData.students.forEach(s => {
+        let row = `"${s.id}","${s.name}","${s.phone}","${s.classFolder}"`;
+        MONTHS.forEach(m => {
+          row += `,"${(s.payments && s.payments[m]) ? 'PAID' : 'UNPAID'}"`;
+        });
+        csvContent += row + "\n";
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `Tuition_Student_Roster_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+
+    function loadSampleDemoData() {
+      if (confirm("Load sample demo student data?")) {
+        appData.students = SAMPLE_STUDENTS;
+        saveDataToStorage();
+        renderDashboard();
+        renderStudentDirectory();
+        alert("Sample demo data loaded!");
+      }
+    }
+  </script>
+</body>
+</html>
